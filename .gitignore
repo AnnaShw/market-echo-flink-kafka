@@ -1,0 +1,5 @@
+config/settings.py
+docs/
+__pycache__/
+*.pyc
+.env
