@@ -20,6 +20,6 @@ RUN pip3 install --no-cache-dir \
     requests==2.31.0
 
 # Add the Kafka connector JAR so Flink can read from Kafka topics.
-# This is a fat JAR — it includes kafka-clients, so no separate download needed.
-RUN wget -q -P /opt/flink/lib/ \
-    https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.1.0-1.19/flink-sql-connector-kafka-3.1.0-1.19.jar
+# Fat JAR pre-downloaded to docker/flink/lib/ — no network call during build.
+# flink-sql-connector-kafka-3.2.0-1.19.jar — download to docker/flink/lib/ before building
+COPY lib/flink-sql-connector-kafka-*.jar /opt/flink/lib/

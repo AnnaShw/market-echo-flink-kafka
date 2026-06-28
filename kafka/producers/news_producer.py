@@ -1,7 +1,12 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import time
 import requests
 from kafka import KafkaProducer
 import json
+from datetime import date, timedelta
 from config.settings import FINNHUB_API_KEY, SYMBOLS
 
 news_producer = KafkaProducer(
@@ -15,10 +20,20 @@ news_producer = KafkaProducer(
 POLL_INTERVAL = 60
 seen_ids = set()
 
+def reference_date():
+    today = date.today()
+    # Markets are closed on Sunday — shift back to Saturday so we still get recent news
+    if today.weekday() == 6:
+        return today - timedelta(days=1)
+    return today
+
 def fetch_news(symbol):
+    ref = reference_date()
+    from_date = ref.strftime("%Y-%m-%d")
+    to_date   = ref.strftime("%Y-%m-%d")
     response = requests.get(
         "https://finnhub.io/api/v1/company-news",
-        params={"symbol": symbol, "from": "2026-01-01", "to": "2099-01-01", "token": FINNHUB_API_KEY},
+        params={"symbol": symbol, "from": from_date, "to": to_date, "token": FINNHUB_API_KEY},
         timeout=10,
     )
     response.raise_for_status()

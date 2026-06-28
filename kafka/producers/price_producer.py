@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import websocket
 import json
 from kafka import KafkaProducer
@@ -7,7 +11,6 @@ producer = KafkaProducer(
     bootstrap_servers="localhost:9092",
     value_serializer=lambda v: json.dumps(v).encode("utf-8"),
     key_serializer=lambda k: k.encode("utf-8"),
-    partitioner_class = '',
     acks="all",
     retries=3,
 )
@@ -23,8 +26,10 @@ def on_message(ws, message):
             )
 
 def on_open(ws):
+    print(f"Connected to Finnhub. Subscribing to {SYMBOLS}...")
     for symbol in SYMBOLS:
         ws.send(json.dumps({"type": "subscribe", "symbol": symbol}))
+    print("Subscribed. Waiting for trades...")
 
 def on_error(_ws, error):
     print(f"WebSocket error: {error}")

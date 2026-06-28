@@ -28,7 +28,7 @@ if errorlevel 1 (
 :: --- Wait for Kafka to be ready ---
 echo [2/4] Waiting for Kafka to be ready...
 :wait_kafka
-docker exec kafka kafka-topics.sh --list --bootstrap-server localhost:9092 >nul 2>&1
+docker exec kafka kafka-topics --list --bootstrap-server localhost:9092 >nul 2>&1
 if errorlevel 1 (
     timeout /t 3 /nobreak >nul
     goto wait_kafka
@@ -57,17 +57,17 @@ echo       ClickHouse is ready.
 
 :: --- Start Producers in separate windows ---
 echo [3/4] Starting data producers...
-start "MarketEcho - Price Producer" cmd /k "python producers/price_producer.py"
-start "MarketEcho - News Producer"  cmd /k "python producers/news_producer.py"
+start "MarketEcho - Price Producer" cmd /k "py kafka/producers/price_producer.py"
+start "MarketEcho - News Producer"  cmd /k "py kafka/producers/news_producer.py"
 echo       Producers started in separate windows.
 
 :: --- Submit Flink job ---
 echo [4/4] Submitting Flink job...
 timeout /t 5 /nobreak >nul
-docker exec flink-jobmanager flink run -py /jobs/sentiment_join.py
+docker exec flink-jobmanager flink run -py /opt/flink/jobs/sentiment_join.py
 if errorlevel 1 (
     echo [WARN] Flink job submission failed. You can retry manually:
-    echo        docker exec flink-jobmanager flink run -py /jobs/sentiment_join.py
+    echo        docker exec flink-jobmanager flink run -py /opt/flink/jobs/sentiment_join.py
 ) else (
     echo       Flink job submitted successfully.
 )

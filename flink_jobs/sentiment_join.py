@@ -48,6 +48,8 @@ class ClickHouseSink(MapFunction):
 def main():
     env = StreamExecutionEnvironment.get_execution_environment()
     env.set_parallelism(1)
+    # PyFlink doesn't pick up JARs from /opt/flink/lib/ automatically — add explicitly
+    env.add_jars("file:///opt/flink/lib/flink-sql-connector-kafka-3.2.0-1.19.jar")
     t_env = StreamTableEnvironment.create(env)
     t_env.create_temporary_function("vader_score", vader_score)
 
@@ -100,9 +102,9 @@ def main():
     result = t_env.sql_query("""
         SELECT
             n.symbol                               AS symbol,
-            n.ts                                   AS news_ts,
+            CAST(n.ts AS TIMESTAMP(3))             AS news_ts,
             vader_score(n.headline, n.summary)     AS sentiment_score,
-            p.ts                                   AS price_ts,
+            CAST(p.ts AS TIMESTAMP(3))             AS price_ts,
             p.p                                    AS price,
             p.ts <= n.ts                           AS is_before
         FROM news_raw n
