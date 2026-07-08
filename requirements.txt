@@ -2,3 +2,5 @@ kafka-python-ng==2.2.3
 websocket-client==1.8.0
 requests==2.31.0
 vaderSentiment==3.3.2
+tzdata==2024.1
+holidays==0.100

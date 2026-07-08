@@ -6,7 +6,9 @@ import time
 import requests
 from kafka import KafkaProducer
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, time as dtime
+from zoneinfo import ZoneInfo
+import holidays
 from config.settings import FINNHUB_API_KEY, SYMBOLS
 
 news_producer = KafkaProducer(
@@ -20,11 +22,25 @@ news_producer = KafkaProducer(
 POLL_INTERVAL = 60
 seen_ids = set()
 
+MARKET_TZ = ZoneInfo("America/New_York")
+MARKET_OPEN = dtime(9, 30)
+NYSE_HOLIDAYS = holidays.financial_holidays("NYSE")
+
+def _is_trading_day(d):
+    return d.weekday() < 5 and d not in NYSE_HOLIDAYS
+
+def _previous_trading_day(d):
+    prev = d - timedelta(days=1)
+    while not _is_trading_day(prev):
+        prev -= timedelta(days=1)
+    return prev
+
 def reference_date():
-    today = date.today()
-    # Markets are closed on Sunday — shift back to Saturday so we still get recent news
-    if today.weekday() == 6:
-        return today - timedelta(days=1)
+    now = datetime.now(MARKET_TZ)
+    today = now.date()
+    # Weekend, or trading hasn't started yet today — use the last full trading day
+    if not _is_trading_day(today) or now.time() < MARKET_OPEN:
+        return _previous_trading_day(today)
     return today
 
 def fetch_news(symbol):
@@ -40,7 +56,10 @@ def fetch_news(symbol):
     return response.json()
 
 def poll():
+    print(f"Polling Finnhub news for {SYMBOLS} every {POLL_INTERVAL}s...")
     while True:
+        ref = reference_date()
+        new_count = 0
         for symbol in SYMBOLS:
             try:
                 articles = fetch_news(symbol)
@@ -60,9 +79,11 @@ def poll():
                             "datetime": article.get("datetime"),
                         },
                     )
+                    new_count += 1
             except Exception as e:
                 print(f"Error fetching news for {symbol}: {e}")
         news_producer.flush()
+        print(f"[{datetime.now(MARKET_TZ):%H:%M:%S}] ref date {ref}: {new_count} new articles sent.")
         time.sleep(POLL_INTERVAL)
 
 if __name__ == "__main__":

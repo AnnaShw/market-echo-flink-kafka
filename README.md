@@ -44,7 +44,7 @@ Finnhub WebSocket               Finnhub News API
 | Price data source   | Finnhub WebSocket (free tier)                                   | Real NYSE/NASDAQ + crypto data, no cost               |
 | News data source    | Finnhub REST News API (poll 60s)                                | Same free key, company + market news                  |
 | Tracked symbols     | AAPL, GOOGL, MSFT, TSLA, AMZN, META, NVDA + BTC/ETH (24/7)    | Stocks + crypto covers market hours and weekends      |
-| Weekend handling    | News producer shifts to Saturday when run on Sunday            | Markets closed Sunday; last active day used as anchor |
+| Market-closed handling | News producer falls back to the last full trading day (NYSE calendar, ET) if run on a weekend or before the 9:30 ET open | Ensures a full day of news is always available instead of an empty/partial window |
 | Kafka mode          | KRaft (no ZooKeeper)                                            | Simpler ops, fewer containers, Kafka 2.8+ native      |
 | Flink state backend | In-memory (hashmap)                                             | Sufficient for low-volume local dev                   |
 | Delivery guarantee  | At-least-once + idempotent sink                                 | Simpler than 2PC exactly-once, same analytical result |

@@ -19,7 +19,7 @@ def vader_score(headline, summary):
     return float(analyzer.polarity_scores(text)["compound"])
 
 
-class ClickHouseSink(MapFunction):
+class SentimentImpactSink(MapFunction):
     def map(self, row):
         symbol, news_ts, sentiment_score, price_ts, price, is_before = row
 
@@ -40,9 +40,35 @@ class ClickHouseSink(MapFunction):
                 timeout=5,
             )
         except Exception as e:
-            print(f"ClickHouse write error: {e}")
+            print(f"ClickHouse write error (sentiment_impact): {e}")
 
         return row  # pass the row through so .print() can log it
+
+
+class NewsEventsSink(MapFunction):
+    def map(self, row):
+        id_, symbol, headline, sentiment_score, ts = row
+
+        # Every news event gets scored and stored here, whether or not it
+        # ever matches a price tick in the interval join below.
+        data = json.dumps({
+            "id":              str(id_),
+            "symbol":          str(symbol),
+            "headline":        str(headline),
+            "sentiment_score": float(sentiment_score),
+            "ts":              str(ts),
+        })
+        try:
+            requests.post(
+                "http://clickhouse:8123/",
+                params={"query": "INSERT INTO market_echo.news_events FORMAT JSONEachRow"},
+                data=data,
+                timeout=5,
+            )
+        except Exception as e:
+            print(f"ClickHouse write error (news_events): {e}")
+
+        return row
 
 
 def main():
@@ -76,6 +102,12 @@ def main():
 
     # Read news events from Kafka.
     # `datetime` is epoch seconds from Finnhub, so we multiply by 1000 to get milliseconds.
+    #
+    # This table is read by two independent queries below (the news_events sink and
+    # the price interval join). Each query gets its own CREATE TABLE with a distinct
+    # `properties.group.id`: the topic has a single partition, so two readers sharing
+    # one group.id would compete for it and one would starve. Separate group IDs let
+    # both read the full topic independently from earliest-offset.
     t_env.execute_sql("""
         CREATE TABLE news_raw (
             `id`       STRING,
@@ -90,6 +122,25 @@ def main():
             'topic'                        = 'news_raw',
             'properties.bootstrap.servers' = 'kafka:29092',
             'properties.group.id'          = 'flink-sentiment-job',
+            'scan.startup.mode'            = 'earliest-offset',
+            'format'                       = 'json'
+        )
+    """)
+
+    t_env.execute_sql("""
+        CREATE TABLE news_raw_for_events (
+            `id`       STRING,
+            `symbol`   STRING,
+            `headline` STRING,
+            `summary`  STRING,
+            `datetime` BIGINT,
+            ts         AS TO_TIMESTAMP_LTZ(`datetime` * 1000, 3),
+            WATERMARK FOR ts AS ts - INTERVAL '30' SECOND
+        ) WITH (
+            'connector'                    = 'kafka',
+            'topic'                        = 'news_raw',
+            'properties.bootstrap.servers' = 'kafka:29092',
+            'properties.group.id'          = 'flink-sentiment-job-events',
             'scan.startup.mode'            = 'earliest-offset',
             'format'                       = 'json'
         )
@@ -116,7 +167,23 @@ def main():
 
     # Write each result row to ClickHouse; also print to Flink logs for debugging
     t_env.to_data_stream(result) \
-        .map(ClickHouseSink()) \
+        .map(SentimentImpactSink()) \
+        .print()
+
+    # Score and store every news event on its own, independent of whether it
+    # ever finds a matching price tick above.
+    news_events = t_env.sql_query("""
+        SELECT
+            n.id                                    AS id,
+            n.symbol                                AS symbol,
+            n.headline                              AS headline,
+            vader_score(n.headline, n.summary)      AS sentiment_score,
+            CAST(n.ts AS TIMESTAMP(3))              AS ts
+        FROM news_raw_for_events n
+    """)
+
+    t_env.to_data_stream(news_events) \
+        .map(NewsEventsSink()) \
         .print()
 
     env.execute("MarketEcho Sentiment Join")

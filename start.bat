@@ -57,19 +57,26 @@ echo       ClickHouse is ready.
 
 :: --- Start Producers in separate windows ---
 echo [3/4] Starting data producers...
-start "MarketEcho - Price Producer" cmd /k "py kafka/producers/price_producer.py"
-start "MarketEcho - News Producer"  cmd /k "py kafka/producers/news_producer.py"
+start "MarketEcho - Price Producer" cmd /k "py -u kafka/producers/price_producer.py"
+start "MarketEcho - News Producer"  cmd /k "py -u kafka/producers/news_producer.py"
 echo       Producers started in separate windows.
 
-:: --- Submit Flink job ---
+:: --- Submit Flink job (skip if one is already running) ---
 echo [4/4] Submitting Flink job...
 timeout /t 5 /nobreak >nul
-docker exec flink-jobmanager flink run -py /opt/flink/jobs/sentiment_join.py
-if errorlevel 1 (
-    echo [WARN] Flink job submission failed. You can retry manually:
-    echo        docker exec flink-jobmanager flink run -py /opt/flink/jobs/sentiment_join.py
+curl -s http://localhost:8081/jobs/overview | findstr /C:"\"state\":\"RUNNING\"" >nul
+if not errorlevel 1 (
+    echo       Flink job already running, skipping submission.
 ) else (
-    echo       Flink job submitted successfully.
+    :: -d = detached: the streaming job never finishes, so without -d
+    :: this call would block here forever and Grafana would never open.
+    docker exec flink-jobmanager flink run -d -py /opt/flink/jobs/sentiment_join.py
+    if errorlevel 1 (
+        echo [WARN] Flink job submission failed. You can retry manually:
+        echo        docker exec flink-jobmanager flink run -d -py /opt/flink/jobs/sentiment_join.py
+    ) else (
+        echo       Flink job submitted successfully.
+    )
 )
 
 :: --- Open Grafana ---
