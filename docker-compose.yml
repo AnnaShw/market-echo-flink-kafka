@@ -16,6 +16,7 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: kafka
+    restart: unless-stopped
     ports:
       - "9092:9092"
     environment:
@@ -62,6 +63,7 @@ services:
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
@@ -79,6 +81,7 @@ services:
       context: ./docker/flink
     image: market-echo-flink:latest
     container_name: flink-jobmanager
+    restart: unless-stopped
     command: jobmanager
     ports:
       - "8081:8081"
@@ -105,6 +108,7 @@ services:
   flink-taskmanager:
     image: market-echo-flink:latest
     container_name: flink-taskmanager
+    restart: unless-stopped
     command: taskmanager
     depends_on:
       flink-jobmanager:
@@ -124,6 +128,7 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.3
     container_name: clickhouse
+    restart: unless-stopped
     ports:
       - "8123:8123"
       - "9000:9000"
@@ -151,6 +156,7 @@ services:
   grafana:
     image: grafana/grafana:10.4.2
     container_name: grafana
+    restart: unless-stopped
     depends_on:
       clickhouse:
         condition: service_healthy
