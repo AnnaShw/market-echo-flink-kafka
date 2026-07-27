@@ -1,0 +1,155 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "datasource", "uid": "grafana" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "lineWidth": 1,
+            "pointSize": 3,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+          "format": 2,
+          "queryType": "sql",
+          "rawSql": "SELECT $__timeInterval(ts) AS time, symbol, avg(price) AS price FROM market_echo.price_ticks WHERE $__timeFilter(ts) GROUP BY time, symbol ORDER BY time",
+          "refId": "A"
+        }
+      ],
+      "title": "Live Price Feed",
+      "transformations": [
+        { "id": "prepareTimeSeries", "options": { "format": "many" } }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "always",
+            "spanNulls": true
+          },
+          "max": 1,
+          "min": -1
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 9 },
+      "id": 2,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+          "format": 2,
+          "queryType": "sql",
+          "rawSql": "SELECT $__timeInterval(ts) AS time, symbol, avg(sentiment_score) AS sentiment FROM market_echo.news_events WHERE $__timeFilter(ts) GROUP BY time, symbol ORDER BY time",
+          "refId": "A"
+        }
+      ],
+      "title": "News Sentiment Timeline",
+      "transformations": [
+        { "id": "prepareTimeSeries", "options": { "format": "many" } }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 18 },
+      "id": 3,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "ts" }]
+      },
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT ts, symbol, headline, sentiment_score FROM market_echo.news_events ORDER BY ts DESC LIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "title": "Recent Headlines",
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "description": "One row per (symbol, sentiment bucket). Populates once same-day news timestamps overlap live price ticks (i.e. during/after a live trading session with fresh news) — empty is expected outside that window.",
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 18 },
+      "id": 4,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT symbol, round(sentiment_score, 1) AS bucket, avgIf(price, is_before = 1) AS avg_price_before, avgIf(price, is_before = 0) AS avg_price_after, round(avgIf(price, is_before = 0) - avgIf(price, is_before = 1), 4) AS delta FROM market_echo.sentiment_impact GROUP BY symbol, bucket ORDER BY symbol, bucket",
+          "refId": "A"
+        }
+      ],
+      "title": "Sentiment Impact (avg price before/after news)",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["market-echo"],
+  "templating": { "list": [] },
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "MarketEcho Overview",
+  "uid": "market-echo-overview",
+  "version": 1
+}

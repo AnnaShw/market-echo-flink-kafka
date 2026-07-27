@@ -4,9 +4,11 @@ datasources:
   - name: ClickHouse
     type: grafana-clickhouse-datasource
     access: proxy
-    url: http://clickhouse:8123
     isDefault: true
     jsonData:
+      host: clickhouse
+      port: 8123
+      protocol: http
+      secure: false
       defaultDatabase: market_echo
       username: default
-      protocol: http
