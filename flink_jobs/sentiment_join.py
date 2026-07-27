@@ -45,6 +45,46 @@ class SentimentImpactSink(MapFunction):
         return row  # pass the row through so .print() can log it
 
 
+class PriceTicksSink(MapFunction):
+    # Price ticks arrive far more often than news (crypto never stops trading),
+    # so unlike the other sinks this one batches rows into one HTTP insert
+    # instead of firing a request per row.
+    BATCH_SIZE = 200
+
+    def open(self, runtime_context):
+        self.buffer = []
+
+    def map(self, row):
+        symbol, price, volume, ts = row
+        self.buffer.append({
+            "symbol": str(symbol),
+            "price":  float(price),
+            "volume": float(volume),
+            "ts":     str(ts),
+        })
+        if len(self.buffer) >= self.BATCH_SIZE:
+            self._flush()
+        return row
+
+    def _flush(self):
+        if not self.buffer:
+            return
+        data = "\n".join(json.dumps(r) for r in self.buffer)
+        try:
+            requests.post(
+                "http://clickhouse:8123/",
+                params={"query": "INSERT INTO market_echo.price_ticks FORMAT JSONEachRow"},
+                data=data,
+                timeout=5,
+            )
+        except Exception as e:
+            print(f"ClickHouse write error (price_ticks): {e}")
+        self.buffer = []
+
+    def close(self):
+        self._flush()
+
+
 class NewsEventsSink(MapFunction):
     def map(self, row):
         id_, symbol, headline, sentiment_score, ts = row
@@ -95,6 +135,28 @@ def main():
             'topic'                        = 'price_ticks',
             'properties.bootstrap.servers' = 'kafka:29092',
             'properties.group.id'          = 'flink-sentiment-job',
+            'scan.startup.mode'            = 'earliest-offset',
+            'format'                       = 'json'
+        )
+    """)
+
+    # Second independent reader on the price_ticks topic, own consumer group —
+    # same reasoning as news_raw_for_events below: this feeds the raw
+    # price_ticks ClickHouse sink separately from the interval join above,
+    # so the two queries don't compete over one group.id.
+    t_env.execute_sql("""
+        CREATE TABLE price_ticks_for_raw (
+            `s`  STRING,
+            `p`  DOUBLE,
+            `v`  DOUBLE,
+            `t`  BIGINT,
+            ts   AS TO_TIMESTAMP_LTZ(`t`, 3),
+            WATERMARK FOR ts AS ts - INTERVAL '30' SECOND
+        ) WITH (
+            'connector'                    = 'kafka',
+            'topic'                        = 'price_ticks',
+            'properties.bootstrap.servers' = 'kafka:29092',
+            'properties.group.id'          = 'flink-sentiment-job-price-raw',
             'scan.startup.mode'            = 'earliest-offset',
             'format'                       = 'json'
         )
@@ -184,6 +246,21 @@ def main():
 
     t_env.to_data_stream(news_events) \
         .map(NewsEventsSink()) \
+        .print()
+
+    # Store every raw price tick, independent of the news join above —
+    # this is what powers the live price panel in Grafana.
+    price_ticks_raw = t_env.sql_query("""
+        SELECT
+            s                          AS symbol,
+            p                          AS price,
+            v                          AS volume,
+            CAST(ts AS TIMESTAMP(3))   AS ts
+        FROM price_ticks_for_raw
+    """)
+
+    t_env.to_data_stream(price_ticks_raw) \
+        .map(PriceTicksSink()) \
         .print()
 
     env.execute("MarketEcho Sentiment Join")
