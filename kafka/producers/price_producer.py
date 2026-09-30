@@ -95,11 +95,26 @@ def fetch_stock_bars(symbol, ref):
     )
     result = data["chart"]["result"][0]
     quote = result["indicators"]["quote"][0]
-    return [
+    bars = [
         {"s": symbol, "p": float(c), "v": float(v or 0), "t": ts * 1000}
         for ts, c, v in zip(result.get("timestamp", []), quote["close"], quote["volume"])
         if c is not None
     ]
+    return drop_bad_prints(bars)
+
+def drop_bad_prints(bars, window=5, max_dev=0.015):
+    # Yahoo's pre/post-market bars carry no volume and contain isolated bad
+    # prints (e.g. AMZN -6% for one minute). Those fake a big "reaction" to
+    # any news next to them, so drop bars far from their neighbours' median.
+    kept = []
+    for i, b in enumerate(bars):
+        neighbours = sorted(x["p"] for x in bars[max(0, i - window): i + window + 1])
+        median = neighbours[len(neighbours) // 2]
+        if abs(b["p"] / median - 1) <= max_dev:
+            kept.append(b)
+    if len(kept) < len(bars):
+        print(f"  {bars[0]['s']}: dropped {len(bars) - len(kept)} bad prints")
+    return kept
 
 def fetch_crypto_bars(symbol, ref):
     # Crypto trades around the clock, so take the whole ET calendar day

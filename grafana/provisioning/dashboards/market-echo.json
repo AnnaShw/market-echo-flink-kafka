@@ -3,7 +3,10 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": { "type": "datasource", "uid": "grafana" },
+        "datasource": {
+          "type": "datasource",
+          "uid": "grafana"
+        },
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -14,142 +17,1192 @@
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": null,
   "links": [],
   "panels": [
     {
-      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "panels": [],
+      "title": "Prices",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "PDEE91DDB90597936"
+      },
+      "description": "Each symbol rebased to 0% at the start of the selected range, so a $84k BTC and a $300 stock share one readable axis. Hover for the move; exact prices are in the table on the right.",
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" },
+          "color": {
+            "mode": "palette-classic"
+          },
           "custom": {
             "axisPlacement": "auto",
             "drawStyle": "line",
             "fillOpacity": 0,
             "lineWidth": 1,
-            "pointSize": 3,
             "showPoints": "never",
-            "spanNulls": true
+            "spanNulls": true,
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           },
-          "unit": "currencyUSD"
+          "displayName": "${__field.labels.symbol}",
+          "decimals": 2,
+          "unit": "percent"
         },
         "overrides": []
       },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 11,
+        "w": 16,
+        "x": 0,
+        "y": 1
+      },
       "id": 1,
       "options": {
-        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "none" }
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "sortBy": "Last *",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
-          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
-          "format": 2,
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "PDEE91DDB90597936"
+          },
+          "format": 0,
           "queryType": "sql",
-          "rawSql": "SELECT $__timeInterval(ts) AS time, symbol, avg(price) AS price FROM market_echo.price_ticks WHERE $__timeFilter(ts) GROUP BY time, symbol ORDER BY time",
+          "rawSql": "SELECT time, symbol, (price / first_value(price) OVER (PARTITION BY symbol ORDER BY time) - 1) * 100 AS change\nFROM (\n    SELECT $__timeInterval(ts) AS time, symbol, avg(price) AS price\n    FROM market_echo.price_ticks\n    WHERE $__timeFilter(ts)\n    GROUP BY time, symbol\n)\nORDER BY time",
           "refId": "A"
         }
       ],
-      "title": "Live Price Feed",
-      "transformations": [
-        { "id": "prepareTimeSeries", "options": { "format": "many" } }
-      ],
+      "title": "Price change since start of range",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "PDEE91DDB90597936"
+      },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" },
           "custom": {
-            "axisPlacement": "auto",
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "lineWidth": 1,
-            "pointSize": 5,
-            "showPoints": "always",
-            "spanNulls": true
-          },
-          "max": 1,
-          "min": -1
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "last_price"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "displayName",
+                "value": "Last price"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "change_pct"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "displayName",
+                "value": "Change"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "symbol"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Symbol"
+              }
+            ]
+          }
+        ]
       },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 9 },
+      "gridPos": {
+        "h": 11,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
       "id": 2,
-      "options": {
-        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "none" }
-      },
-      "targets": [
-        {
-          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
-          "format": 2,
-          "queryType": "sql",
-          "rawSql": "SELECT $__timeInterval(ts) AS time, symbol, avg(sentiment_score) AS sentiment FROM market_echo.news_events WHERE $__timeFilter(ts) GROUP BY time, symbol ORDER BY time",
-          "refId": "A"
-        }
-      ],
-      "title": "News Sentiment Timeline",
-      "transformations": [
-        { "id": "prepareTimeSeries", "options": { "format": "many" } }
-      ],
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
-      "fieldConfig": { "defaults": {}, "overrides": [] },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 18 },
-      "id": 3,
       "options": {
         "cellHeight": "sm",
         "showHeader": true,
-        "sortBy": [{ "desc": true, "displayName": "ts" }]
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Change"
+          }
+        ]
       },
       "targets": [
         {
-          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "PDEE91DDB90597936"
+          },
           "format": 1,
           "queryType": "sql",
-          "rawSql": "SELECT ts, symbol, headline, sentiment_score FROM market_echo.news_events ORDER BY ts DESC LIMIT 50",
+          "rawSql": "SELECT symbol, argMax(price, ts) AS last_price, (argMax(price, ts) / argMin(price, ts) - 1) * 100 AS change_pct\nFROM market_echo.price_ticks\nWHERE $__timeFilter(ts)\nGROUP BY symbol",
           "refId": "A"
         }
       ],
-      "title": "Recent Headlines",
+      "title": "Last price & change in range",
       "type": "table"
     },
     {
-      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
-      "description": "One row per (symbol, sentiment bucket). Populates once same-day news timestamps overlap live price ticks (i.e. during/after a live trading session with fresh news) — empty is expected outside that window.",
-      "fieldConfig": { "defaults": {}, "overrides": [] },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 18 },
-      "id": 4,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "id": 101,
+      "panels": [],
+      "title": "News sentiment",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "PDEE91DDB90597936"
+      },
+      "description": "VADER compound score per headline+summary. Positive ≥ 0.05, negative ≤ -0.05, neutral in between (VADER's standard cut-offs).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "symbol"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Symbol"
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "news"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "News"
+              },
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_sentiment"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Avg sentiment"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "min",
+                "value": -1
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-RdYlGr"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "positive_pct"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Positive"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "negative_pct"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Negative"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 10,
+        "x": 0,
+        "y": 13
+      },
+      "id": 3,
       "options": {
         "cellHeight": "sm",
         "showHeader": true
       },
       "targets": [
         {
-          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "PDEE91DDB90597936" },
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "PDEE91DDB90597936"
+          },
           "format": 1,
           "queryType": "sql",
-          "rawSql": "SELECT symbol, round(sentiment_score, 1) AS bucket, avgIf(price, is_before = 1) AS avg_price_before, avgIf(price, is_before = 0) AS avg_price_after, round(avgIf(price, is_before = 0) - avgIf(price, is_before = 1), 4) AS delta FROM market_echo.sentiment_impact GROUP BY symbol, bucket ORDER BY symbol, bucket",
+          "rawSql": "SELECT symbol, count() AS news, avg(sentiment_score) AS avg_sentiment,\n       countIf(sentiment_score >= 0.05) / count() * 100 AS positive_pct,\n       countIf(sentiment_score <= -0.05) / count() * 100 AS negative_pct\nFROM market_echo.news_events\nWHERE $__timeFilter(ts)\nGROUP BY symbol\nORDER BY avg_sentiment DESC",
           "refId": "A"
         }
       ],
-      "title": "Sentiment Impact (avg price before/after news)",
+      "title": "Sentiment by company",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "PDEE91DDB90597936"
+      },
+      "description": "Average sentiment of each company's news per hour. Red = negative, green = positive, empty = no news that hour.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-RdYlGr"
+          },
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0
+          },
+          "decimals": 2,
+          "displayName": "${__field.labels.symbol}",
+          "min": -1,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 14,
+        "x": 10,
+        "y": 13
+      },
+      "id": 4,
+      "options": {
+        "alignValue": "center",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "mergeValues": false,
+        "rowHeight": 0.85,
+        "showValue": "never",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "PDEE91DDB90597936"
+          },
+          "format": 0,
+          "queryType": "sql",
+          "rawSql": "SELECT toStartOfHour(ts) AS time, symbol, avg(sentiment_score) AS sentiment\nFROM market_echo.news_events\nWHERE $__timeFilter(ts)\nGROUP BY time, symbol\nORDER BY time",
+          "refId": "A"
+        }
+      ],
+      "title": "Sentiment heatmap (company × hour)",
+      "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "PDEE91DDB90597936"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 0,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "showPoints": "never"
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "positive"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "neutral"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8e8e8e"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "negative"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "PDEE91DDB90597936"
+          },
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT toStartOfHour(ts) AS time,\n       countIf(sentiment_score >= 0.05) AS positive,\n       countIf(abs(sentiment_score) < 0.05) AS neutral,\n       countIf(sentiment_score <= -0.05) AS negative\nFROM market_echo.news_events\nWHERE $__timeFilter(ts)\nGROUP BY time\nORDER BY time",
+          "refId": "A"
+        }
+      ],
+      "title": "News volume per hour",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 30
+      },
+      "id": 102,
+      "panels": [],
+      "title": "Does sentiment move price?",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "PDEE91DDB90597936"
+      },
+      "description": "Per news item: avg price in the 10 min after vs the 5 min before (from sentiment_impact). If sentiment carried a price signal, positive news would show a positive avg move and >50% up, negative news the opposite. Moves near 0% and ~50% up = no measurable signal.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sentiment"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Sentiment"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "positive": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "neutral": {
+                        "color": "#8e8e8e",
+                        "index": 1
+                      },
+                      "negative": {
+                        "color": "red",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 95
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "news"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "News"
+              },
+              {
+                "id": "custom.width",
+                "value": 65
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_move_pct"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Avg price move"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 3
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "up_share_pct"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Price went up"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic",
+                  "valueDisplayMode": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "up_share_pct"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "#8e8e8e",
+                      "value": 45
+                    },
+                    {
+                      "color": "green",
+                      "value": 55
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_abs_move_pct"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Avg |move|"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 3
+              },
+              {
+                "id": "custom.width",
+                "value": 95
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 10,
+        "x": 0,
+        "y": 31
+      },
+      "id": 6,
+      "options": {
+        "cellHeight": "md",
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "PDEE91DDB90597936"
+          },
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "WITH per_news AS (\n    SELECT symbol, news_ts, any(sentiment_score) AS s,\n           (avgIf(price, is_before = 0) / avgIf(price, is_before = 1) - 1) * 100 AS move\n    FROM market_echo.sentiment_impact\n    WHERE $__timeFilter(news_ts)\n    GROUP BY symbol, news_ts\n    HAVING countIf(is_before = 1) > 0 AND countIf(is_before = 0) > 0\n)\nSELECT multiIf(s >= 0.05, 'positive', s <= -0.05, 'negative', 'neutral') AS sentiment,\n       count() AS news,\n       avg(move) AS avg_move_pct,\n       countIf(move > 0) / count() * 100 AS up_share_pct,\n       avg(abs(move)) AS avg_abs_move_pct\nFROM per_news\nGROUP BY sentiment\nORDER BY indexOf(['negative', 'neutral', 'positive'], sentiment)",
+          "refId": "A"
+        }
+      ],
+      "title": "Price reaction by sentiment class",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "PDEE91DDB90597936"
+      },
+      "description": "News after which the price moved the most (avg 10 min after vs 5 min before). 'Matched' = the move went in the direction the sentiment suggested.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "symbol"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Symbol"
+              },
+              {
+                "id": "custom.width",
+                "value": 75
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time_et"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Time (ET)"
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sentiment"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Sentiment"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "min",
+                "value": -1
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-RdYlGr"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "move_pct"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Price move"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 95
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "matched"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Matched"
+              },
+              {
+                "id": "custom.width",
+                "value": 80
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "✘ no",
+                        "color": "red"
+                      },
+                      "1": {
+                        "text": "✔ yes",
+                        "color": "green"
+                      },
+                      "-1": {
+                        "text": "— neutral",
+                        "color": "#8e8e8e"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "headline"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Headline"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 14,
+        "x": 10,
+        "y": 31
+      },
+      "id": 7,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "PDEE91DDB90597936"
+          },
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "WITH per_news AS (\n    SELECT symbol, news_ts, any(sentiment_score) AS s,\n           (avgIf(price, is_before = 0) / avgIf(price, is_before = 1) - 1) * 100 AS move\n    FROM market_echo.sentiment_impact\n    WHERE $__timeFilter(news_ts)\n    GROUP BY symbol, news_ts\n    HAVING countIf(is_before = 1) > 0 AND countIf(is_before = 0) > 0\n    ORDER BY abs(move) DESC\n    LIMIT 10\n)\nSELECT p.symbol AS symbol,\n       formatDateTime(p.news_ts, '%m-%d %H:%i', 'America/New_York') AS time_et,\n       p.s AS sentiment,\n       p.move AS move_pct,\n       if(abs(p.s) < 0.05, -1, toInt8(sign(p.s) = sign(p.move))) AS matched,\n       any(n.headline) AS headline\nFROM per_news p\nLEFT JOIN market_echo.news_events n ON n.symbol = p.symbol AND n.ts = p.news_ts\nGROUP BY p.symbol, p.news_ts, p.s, p.move\nORDER BY abs(p.move) DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Top 10 price moves after news",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 41
+      },
+      "id": 103,
+      "panels": [],
+      "title": "Raw feed",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "PDEE91DDB90597936"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sentiment_score"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "min",
+                "value": -1
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-RdYlGr"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ts"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "symbol"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "id": 8,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "ts"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "PDEE91DDB90597936"
+          },
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT ts, symbol, headline, sentiment_score FROM market_echo.news_events WHERE $__timeFilter(ts) ORDER BY ts DESC LIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "title": "Recent Headlines",
       "type": "table"
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["market-echo"],
-  "templating": { "list": [] },
-  "time": { "from": "now-24h", "to": "now" },
+  "tags": [
+    "market-echo"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
   "timepicker": {},
-  "timezone": "browser",
+  "timezone": "America/New_York",
   "title": "MarketEcho Overview",
   "uid": "market-echo-overview",
-  "version": 1
+  "version": 4
 }
