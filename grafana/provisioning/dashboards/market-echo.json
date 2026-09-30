@@ -236,11 +236,26 @@
       "type": "row"
     },
     {
+      "id": 9,
+      "type": "text",
+      "title": "How to read the sentiment score",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "options": {
+        "mode": "html",
+        "content": "<p style=\"margin:0 0 6px 0\">Every headline (plus its summary) gets a score from <b>−1</b> to <b>+1</b> that says how <b>negative or positive its wording</b> is. It is computed by <b>VADER</b>: a dictionary of ~7,500 words rated by people (<i>“soar”</i> = good, <i>“lawsuit”</i> = bad), adjusted for negation (<i>“not good”</i>), CAPS and “!!!”.</p>\n<table style=\"border-collapse:collapse;margin-bottom:6px\">\n<tr style=\"opacity:.65\"><td style=\"padding:1px 16px 1px 0\">Score</td><td style=\"padding:1px 16px 1px 0\">Meaning</td><td style=\"padding:1px 16px 1px 0\">Example headline (29 Sep)</td></tr>\n<tr><td style=\"padding:1px 16px 1px 0\">−1 … −0.5</td><td style=\"padding:1px 16px 1px 0\"><span style=\"display:inline-block;width:11px;height:11px;background:#C4162A;border-radius:2px;margin-right:6px\"></span><b>Very negative</b></td><td style=\"padding:1px 16px 1px 0\">“Apple Faces a New Threat From Meta’s Muse” (−0.72)</td></tr>\n<tr><td style=\"padding:1px 16px 1px 0\">−0.5 … −0.05</td><td style=\"padding:1px 16px 1px 0\"><span style=\"display:inline-block;width:11px;height:11px;background:#FF9830;border-radius:2px;margin-right:6px\"></span><b>Negative</b></td><td style=\"padding:1px 16px 1px 0\">“Tesla Delays Roadster Reveal Over Severe Weather in Texas” (−0.38)</td></tr>\n<tr><td style=\"padding:1px 16px 1px 0\">−0.05 … +0.05</td><td style=\"padding:1px 16px 1px 0\"><span style=\"display:inline-block;width:11px;height:11px;background:#8E8E8E;border-radius:2px;margin-right:6px\"></span><b>Neutral: plain facts, no emotional words</b></td><td style=\"padding:1px 16px 1px 0\">“Company News for Sep 29, 2026” (0.00)</td></tr>\n<tr><td style=\"padding:1px 16px 1px 0\">+0.05 … +0.5</td><td style=\"padding:1px 16px 1px 0\"><span style=\"display:inline-block;width:11px;height:11px;background:#96D98D;border-radius:2px;margin-right:6px\"></span><b>Positive</b></td><td style=\"padding:1px 16px 1px 0\">“3 Reasons To Buy Airbnb Now” (+0.36)</td></tr>\n<tr><td style=\"padding:1px 16px 1px 0\">+0.5 … +1</td><td style=\"padding:1px 16px 1px 0\"><span style=\"display:inline-block;width:11px;height:11px;background:#37872D;border-radius:2px;margin-right:6px\"></span><b>Very positive</b></td><td style=\"padding:1px 16px 1px 0\">“OpenAI tried to invest $100 million in Hugging Face” (+0.54)</td></tr>\n</table>\n<p style=\"margin:0\"><span style=\"color:#FF9830\">⚠</span> VADER reads <b>words, not meaning</b>: <i>“MongoDB stock crashes 26% as its CEO jumps ship”</i> scored <b>+0.40</b> because its summary is full of upbeat words. Treat the score as the <b>tone of the text</b>, not a buy/sell signal.</p>"
+      }
+    },
+    {
       "datasource": {
         "type": "grafana-clickhouse-datasource",
         "uid": "PDEE91DDB90597936"
       },
-      "description": "VADER compound score per headline+summary. Positive ≥ 0.05, negative ≤ -0.05, neutral in between (VADER's standard cut-offs).",
+      "description": "Average score of each company’s news, and the share of positive (≥ +0.05) and negative (≤ −0.05) articles. Score: −1 = very negative, 0 = neutral, +1 = very positive (see \"How to read the sentiment score\" above).",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -308,7 +323,7 @@
               {
                 "id": "color",
                 "value": {
-                  "mode": "continuous-RdYlGr"
+                  "mode": "thresholds"
                 }
               },
               {
@@ -317,6 +332,34 @@
                   "type": "gauge",
                   "mode": "basic",
                   "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#C4162A",
+                      "value": null
+                    },
+                    {
+                      "color": "#FF9830",
+                      "value": -0.5
+                    },
+                    {
+                      "color": "#8E8E8E",
+                      "value": -0.05
+                    },
+                    {
+                      "color": "#96D98D",
+                      "value": 0.05
+                    },
+                    {
+                      "color": "#37872D",
+                      "value": 0.5
+                    }
+                  ]
                 }
               }
             ]
@@ -413,7 +456,7 @@
         "h": 10,
         "w": 10,
         "x": 0,
-        "y": 13
+        "y": 22
       },
       "id": 3,
       "options": {
@@ -440,20 +483,108 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "PDEE91DDB90597936"
       },
-      "description": "Average sentiment of each company's news per hour. Red = negative, green = positive, empty = no news that hour.",
+      "description": "Average sentiment of each company’s news per hour, in 5 levels (legend below). Empty = no news that hour. Hover a cell for the level. Score: −1 = very negative, 0 = neutral, +1 = very positive (see \"How to read the sentiment score\" above).",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "continuous-RdYlGr"
+            "mode": "fixed",
+            "fixedColor": "#8E8E8E"
           },
           "custom": {
-            "fillOpacity": 85,
+            "fillOpacity": 100,
             "lineWidth": 0
           },
           "decimals": 2,
           "displayName": "${__field.labels.symbol}",
           "min": -1,
-          "max": 1
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#C4162A",
+                "value": null
+              },
+              {
+                "color": "#FF9830",
+                "value": -0.5
+              },
+              {
+                "color": "#8E8E8E",
+                "value": -0.05
+              },
+              {
+                "color": "#96D98D",
+                "value": 0.05
+              },
+              {
+                "color": "#37872D",
+                "value": 0.5
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "range",
+              "options": {
+                "from": -1,
+                "to": -0.5,
+                "result": {
+                  "text": "Very negative",
+                  "color": "#C4162A",
+                  "index": 0
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": -0.49999,
+                "to": -0.05,
+                "result": {
+                  "text": "Negative",
+                  "color": "#FF9830",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": -0.04999,
+                "to": 0.04999,
+                "result": {
+                  "text": "Neutral",
+                  "color": "#8E8E8E",
+                  "index": 2
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0.05,
+                "to": 0.49999,
+                "result": {
+                  "text": "Positive",
+                  "color": "#96D98D",
+                  "index": 3
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0.5,
+                "to": 1,
+                "result": {
+                  "text": "Very positive",
+                  "color": "#37872D",
+                  "index": 4
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -461,7 +592,7 @@
         "h": 10,
         "w": 14,
         "x": 10,
-        "y": 13
+        "y": 22
       },
       "id": 4,
       "options": {
@@ -469,7 +600,7 @@
         "legend": {
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": false
+          "showLegend": true
         },
         "mergeValues": false,
         "rowHeight": 0.85,
@@ -565,7 +696,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 32
       },
       "id": 5,
       "options": {
@@ -602,7 +733,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 30
+        "y": 39
       },
       "id": 102,
       "panels": [],
@@ -614,7 +745,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "PDEE91DDB90597936"
       },
-      "description": "Per news item: avg price in the 10 min after vs the 5 min before (from sentiment_impact). If sentiment carried a price signal, positive news would show a positive avg move and >50% up, negative news the opposite. Moves near 0% and ~50% up = no measurable signal.",
+      "description": "Positive = score ≥ +0.05, negative = score ≤ −0.05, neutral in between. Per news item: avg price in the 10 min after vs the 5 min before (from sentiment_impact). If sentiment carried a price signal, positive news would show a positive avg move and >50% up, negative news the opposite. Moves near 0% and ~50% up = no measurable signal.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -831,7 +962,7 @@
         "h": 10,
         "w": 10,
         "x": 0,
-        "y": 31
+        "y": 40
       },
       "id": 6,
       "options": {
@@ -858,7 +989,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "PDEE91DDB90597936"
       },
-      "description": "News after which the price moved the most (avg 10 min after vs 5 min before). 'Matched' = the move went in the direction the sentiment suggested.",
+      "description": "News after which the price moved the most (avg 10 min after vs 5 min before). 'Matched' = the move went in the direction the sentiment suggested. Score: −1 = very negative, 0 = neutral, +1 = very positive (see \"How to read the sentiment score\" above).",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -926,7 +1057,7 @@
               {
                 "id": "color",
                 "value": {
-                  "mode": "continuous-RdYlGr"
+                  "mode": "thresholds"
                 }
               },
               {
@@ -938,6 +1069,34 @@
               {
                 "id": "custom.width",
                 "value": 90
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#C4162A",
+                      "value": null
+                    },
+                    {
+                      "color": "#FF9830",
+                      "value": -0.5
+                    },
+                    {
+                      "color": "#8E8E8E",
+                      "value": -0.05
+                    },
+                    {
+                      "color": "#96D98D",
+                      "value": 0.05
+                    },
+                    {
+                      "color": "#37872D",
+                      "value": 0.5
+                    }
+                  ]
+                }
               }
             ]
           },
@@ -1050,7 +1209,7 @@
         "h": 10,
         "w": 14,
         "x": 10,
-        "y": 31
+        "y": 40
       },
       "id": 7,
       "options": {
@@ -1078,7 +1237,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 50
       },
       "id": 103,
       "panels": [],
@@ -1114,7 +1273,7 @@
               {
                 "id": "color",
                 "value": {
-                  "mode": "continuous-RdYlGr"
+                  "mode": "thresholds"
                 }
               },
               {
@@ -1126,6 +1285,34 @@
               {
                 "id": "custom.width",
                 "value": 130
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#C4162A",
+                      "value": null
+                    },
+                    {
+                      "color": "#FF9830",
+                      "value": -0.5
+                    },
+                    {
+                      "color": "#8E8E8E",
+                      "value": -0.05
+                    },
+                    {
+                      "color": "#96D98D",
+                      "value": 0.05
+                    },
+                    {
+                      "color": "#37872D",
+                      "value": 0.5
+                    }
+                  ]
+                }
               }
             ]
           },
@@ -1159,7 +1346,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 42
+        "y": 51
       },
       "id": 8,
       "options": {
@@ -1185,7 +1372,8 @@
         }
       ],
       "title": "Recent Headlines",
-      "type": "table"
+      "type": "table",
+      "description": "Latest scored headlines. Score: −1 = very negative, 0 = neutral, +1 = very positive (see \"How to read the sentiment score\" above)."
     }
   ],
   "refresh": "30s",
@@ -1204,5 +1392,5 @@
   "timezone": "America/New_York",
   "title": "MarketEcho Overview",
   "uid": "market-echo-overview",
-  "version": 4
+  "version": 7
 }

@@ -65,14 +65,27 @@ Provisioned automatically from [`grafana/provisioning/dashboards/market-echo.jso
 | ------------------------- | ------------------------------------ | ------------------------------------------------------------- |
 | Prices                    | Price change since start of range    | How did each symbol move? (rebased to 0% so BTC and stocks share an axis) |
 |                           | Last price & change in range         | Where is each symbol now?                                     |
-| News sentiment            | Sentiment by company                 | Who gets good/bad press? (avg score, % positive / negative)   |
+| News sentiment            | How to read the sentiment score      | Plain-language scale with real example headlines per level |
+|                           | Sentiment by company                 | Who gets good/bad press? (avg score, % positive / negative)   |
 |                           | Sentiment heatmap (company × hour)   | When did the tone change, and for whom?                       |
 |                           | News volume per hour                 | When does news flow, and how positive is it?                  |
 | Does sentiment move price? | Price reaction by sentiment class   | Avg % move and share of "price went up" after positive / neutral / negative news |
 |                           | Top 10 price moves after news        | Which headlines preceded the biggest moves, and did the direction match? |
 | Raw feed                  | Recent Headlines                     | Latest scored headlines                                        |
 
-Sentiment classes use VADER's standard cut-offs: positive ≥ 0.05, negative ≤ −0.05.
+### Sentiment score
+
+Each headline + summary gets a VADER compound score from **−1** (very negative wording) to **+1** (very positive wording). The dashboard uses the same five colours everywhere:
+
+| Score          | Level         | Example (29 Sep)                                               |
+| -------------- | ------------- | -------------------------------------------------------------- |
+| −1 … −0.5      | Very negative | "Apple Faces a New Threat From Meta's Muse" (−0.72)            |
+| −0.5 … −0.05   | Negative      | "Tesla Delays Roadster Reveal Over Severe Weather in Texas" (−0.38) |
+| −0.05 … +0.05  | Neutral       | "Company News for Sep 29, 2026" (0.00)                         |
+| +0.05 … +0.5   | Positive      | "3 Reasons To Buy Airbnb Now" (+0.36)                          |
+| +0.5 … +1      | Very positive | "OpenAI tried to invest $100 million in Hugging Face" (+0.54)  |
+
+±0.05 are VADER's standard positive/negative cut-offs, and they define the positive / neutral / negative classes in the impact panels. VADER scores words, not meaning ("MongoDB stock crashes 26% as its CEO jumps ship" scored +0.40 thanks to an upbeat summary), so read the score as the tone of the text, not as a trading signal.
 
 ---
 
