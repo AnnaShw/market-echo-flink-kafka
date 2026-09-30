@@ -6,7 +6,7 @@ The project demonstrates production-grade streaming patterns: out-of-order data 
 
 ![MarketEcho Grafana dashboard](images/dashboard.png)
 
-*Dashboard for a replayed trading day (29 Sep 2026): price moves, sentiment per company and per hour, and whether sentiment actually moved the price.*
+*Dashboard for a replayed trading day (29 Sep 2026, times in ET): price moves, how to read the sentiment score, sentiment per company and per hour, and whether sentiment actually moved the price.*
 
 ---
 
@@ -59,15 +59,15 @@ So when the market is closed, **all** data (including BTC/ETH) describes the las
 
 ## Dashboard
 
-Provisioned automatically from [`grafana/provisioning/dashboards/market-echo.json`](grafana/provisioning/dashboards/market-echo.json):
+The dashboard timezone is `America/New_York`, matching NYSE hours. Provisioned automatically from [`grafana/provisioning/dashboards/market-echo.json`](grafana/provisioning/dashboards/market-echo.json):
 
 | Section                   | Panel                                | Answers                                                       |
 | ------------------------- | ------------------------------------ | ------------------------------------------------------------- |
-| Prices                    | Price change since start of range    | How did each symbol move? (rebased to 0% so BTC and stocks share an axis) |
+| Prices                    | Price change since start of range    | How did each symbol move? Rebased to 0% so BTC and stocks share an axis; one distinct colour per symbol; hover shows the % change **and the actual $ price** of every symbol |
 |                           | Last price & change in range         | Where is each symbol now?                                     |
 | News sentiment            | How to read the sentiment score      | Plain-language scale with real example headlines per level |
 |                           | Sentiment by company                 | Who gets good/bad press? (avg score, % positive / negative)   |
-|                           | Sentiment heatmap (company × hour)   | When did the tone change, and for whom?                       |
+|                           | Sentiment heatmap (company × hour)   | When did the tone change, and for whom? One cell per hour, coloured by the 5 sentiment levels below |
 |                           | News volume per hour                 | When does news flow, and how positive is it?                  |
 | Does sentiment move price? | Price reaction by sentiment class   | Avg % move and share of "price went up" after positive / neutral / negative news |
 |                           | Top 10 price moves after news        | Which headlines preceded the biggest moves, and did the direction match? |

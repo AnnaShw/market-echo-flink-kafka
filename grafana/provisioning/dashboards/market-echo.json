@@ -39,7 +39,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "PDEE91DDB90597936"
       },
-      "description": "Each symbol rebased to 0% at the start of the selected range, so a $84k BTC and a $300 stock share one readable axis. Hover for the move; exact prices are in the table on the right.",
+      "description": "Each symbol rebased to 0% at the start of the selected range, so a $84k BTC and a $300 stock share one readable axis. Hover to see both the % change and the actual price of every symbol at that moment.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -49,7 +49,7 @@
             "axisPlacement": "auto",
             "drawStyle": "line",
             "fillOpacity": 0,
-            "lineWidth": 1,
+            "lineWidth": 2,
             "showPoints": "never",
             "spanNulls": true,
             "thresholdsStyle": {
@@ -60,11 +60,206 @@
           "decimals": 2,
           "unit": "percent"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "AAPL"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GOOGL"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2CC0C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "MSFT"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TSLA"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF4040"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "AMZN"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF9830"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "META"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NVDA"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#00D1C1"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "BINANCE:BTCUSDT"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#E0E0E0"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "BINANCE:ETHUSDT"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF6EC7"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${__field.labels.symbol} price"
+              },
+              {
+                "id": "unit",
+                "value": "currencyUSD"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": false
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "transparent"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "hidden"
+              },
+              {
+                "id": "min",
+                "value": 1000000000000
+              },
+              {
+                "id": "max",
+                "value": 2000000000000
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
-        "h": 11,
-        "w": 16,
+        "h": 18,
+        "w": 17,
         "x": 0,
         "y": 1
       },
@@ -81,7 +276,7 @@
         },
         "tooltip": {
           "mode": "multi",
-          "sort": "desc"
+          "sort": "none"
         }
       },
       "targets": [
@@ -94,6 +289,16 @@
           "queryType": "sql",
           "rawSql": "SELECT time, symbol, (price / first_value(price) OVER (PARTITION BY symbol ORDER BY time) - 1) * 100 AS change\nFROM (\n    SELECT $__timeInterval(ts) AS time, symbol, avg(price) AS price\n    FROM market_echo.price_ticks\n    WHERE $__timeFilter(ts)\n    GROUP BY time, symbol\n)\nORDER BY time",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "PDEE91DDB90597936"
+          },
+          "format": 0,
+          "queryType": "sql",
+          "refId": "B",
+          "rawSql": "SELECT $__timeInterval(ts) AS time, symbol, avg(price) AS price\nFROM market_echo.price_ticks\nWHERE $__timeFilter(ts)\nGROUP BY time, symbol\nORDER BY time"
         }
       ],
       "title": "Price change since start of range",
@@ -131,6 +336,10 @@
               {
                 "id": "displayName",
                 "value": "Last price"
+              },
+              {
+                "id": "custom.width",
+                "value": 110
               }
             ]
           },
@@ -185,15 +394,19 @@
               {
                 "id": "displayName",
                 "value": "Symbol"
+              },
+              {
+                "id": "custom.width",
+                "value": 95
               }
             ]
           }
         ]
       },
       "gridPos": {
-        "h": 11,
-        "w": 8,
-        "x": 16,
+        "h": 18,
+        "w": 7,
+        "x": 17,
         "y": 1
       },
       "id": 2,
@@ -215,7 +428,7 @@
           },
           "format": 1,
           "queryType": "sql",
-          "rawSql": "SELECT symbol, argMax(price, ts) AS last_price, (argMax(price, ts) / argMin(price, ts) - 1) * 100 AS change_pct\nFROM market_echo.price_ticks\nWHERE $__timeFilter(ts)\nGROUP BY symbol",
+          "rawSql": "SELECT replaceOne(symbol, 'BINANCE:', '') AS symbol, argMax(price, ts) AS last_price, (argMax(price, ts) / argMin(price, ts) - 1) * 100 AS change_pct\nFROM market_echo.price_ticks\nWHERE $__timeFilter(ts)\nGROUP BY symbol",
           "refId": "A"
         }
       ],
@@ -228,7 +441,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 12
+        "y": 19
       },
       "id": 101,
       "panels": [],
@@ -243,7 +456,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 13
+        "y": 20
       },
       "options": {
         "mode": "html",
@@ -456,7 +669,7 @@
         "h": 10,
         "w": 10,
         "x": 0,
-        "y": 22
+        "y": 29
       },
       "id": 3,
       "options": {
@@ -592,7 +805,7 @@
         "h": 10,
         "w": 14,
         "x": 10,
-        "y": 22
+        "y": 29
       },
       "id": 4,
       "options": {
@@ -696,7 +909,7 @@
         "h": 7,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 39
       },
       "id": 5,
       "options": {
@@ -733,7 +946,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 46
       },
       "id": 102,
       "panels": [],
@@ -962,7 +1175,7 @@
         "h": 10,
         "w": 10,
         "x": 0,
-        "y": 40
+        "y": 47
       },
       "id": 6,
       "options": {
@@ -1209,7 +1422,7 @@
         "h": 10,
         "w": 14,
         "x": 10,
-        "y": 40
+        "y": 47
       },
       "id": 7,
       "options": {
@@ -1237,7 +1450,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 50
+        "y": 57
       },
       "id": 103,
       "panels": [],
@@ -1346,7 +1559,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 51
+        "y": 58
       },
       "id": 8,
       "options": {
@@ -1392,5 +1605,5 @@
   "timezone": "America/New_York",
   "title": "MarketEcho Overview",
   "uid": "market-echo-overview",
-  "version": 7
+  "version": 14
 }
