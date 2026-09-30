@@ -5,6 +5,7 @@ from pyflink.table.udf import udf
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import requests
 import json
+import threading
 
 # VADER looks up each word in a hand-rated dictionary (~7500 words, scored -4 to +4).
 # It adjusts scores for context: "not great" flips the sign, "GREAT" gets a caps bonus,
@@ -50,26 +51,41 @@ class PriceTicksSink(MapFunction):
     # so unlike the other sinks this one batches rows into one HTTP insert
     # instead of firing a request per row.
     BATCH_SIZE = 200
+    # A size-only trigger would strand the tail of a backfill in the buffer
+    # forever when the market is closed and no further ticks arrive
+    FLUSH_INTERVAL_S = 5
 
     def open(self, runtime_context):
         self.buffer = []
+        self.lock = threading.Lock()
+        self.stopped = threading.Event()
+        self.flusher = threading.Thread(target=self._flush_periodically, daemon=True)
+        self.flusher.start()
 
     def map(self, row):
         symbol, price, volume, ts = row
-        self.buffer.append({
-            "symbol": str(symbol),
-            "price":  float(price),
-            "volume": float(volume),
-            "ts":     str(ts),
-        })
-        if len(self.buffer) >= self.BATCH_SIZE:
+        with self.lock:
+            self.buffer.append({
+                "symbol": str(symbol),
+                "price":  float(price),
+                "volume": float(volume),
+                "ts":     str(ts),
+            })
+            full = len(self.buffer) >= self.BATCH_SIZE
+        if full:
             self._flush()
         return row
 
+    def _flush_periodically(self):
+        while not self.stopped.wait(self.FLUSH_INTERVAL_S):
+            self._flush()
+
     def _flush(self):
-        if not self.buffer:
+        with self.lock:
+            rows, self.buffer = self.buffer, []
+        if not rows:
             return
-        data = "\n".join(json.dumps(r) for r in self.buffer)
+        data = "\n".join(json.dumps(r) for r in rows)
         try:
             requests.post(
                 "http://clickhouse:8123/",
@@ -79,9 +95,9 @@ class PriceTicksSink(MapFunction):
             )
         except Exception as e:
             print(f"ClickHouse write error (price_ticks): {e}")
-        self.buffer = []
 
     def close(self):
+        self.stopped.set()
         self._flush()
 
 
@@ -121,7 +137,14 @@ def main():
 
     # Read price ticks from Kafka.
     # `t` is epoch milliseconds from Finnhub; we convert it to a timestamp for watermarks.
-    # Watermark of 30s means Flink will wait up to 30 seconds for late-arriving events.
+    #
+    # The two tables feeding the interval join (this one and news_raw) tolerate
+    # 1 day of disorder: when the market is closed the producers backfill the
+    # previous trading day, which lands in the topics *after* newer live data.
+    # A tight watermark would mark that whole backfill as late and the join
+    # would silently drop it. The interval join still emits matches as soon as
+    # both sides arrive — the watermark only controls when old state is freed,
+    # so the cost is ~1 day of join state (kept in RocksDB, not on the heap).
     t_env.execute_sql("""
         CREATE TABLE price_ticks (
             `s`  STRING,
@@ -129,7 +152,7 @@ def main():
             `v`  DOUBLE,
             `t`  BIGINT,
             ts   AS TO_TIMESTAMP_LTZ(`t`, 3),
-            WATERMARK FOR ts AS ts - INTERVAL '30' SECOND
+            WATERMARK FOR ts AS ts - INTERVAL '1' DAY
         ) WITH (
             'connector'                    = 'kafka',
             'topic'                        = 'price_ticks',
@@ -178,7 +201,7 @@ def main():
             `summary`  STRING,
             `datetime` BIGINT,
             ts         AS TO_TIMESTAMP_LTZ(`datetime` * 1000, 3),
-            WATERMARK FOR ts AS ts - INTERVAL '30' SECOND
+            WATERMARK FOR ts AS ts - INTERVAL '1' DAY
         ) WITH (
             'connector'                    = 'kafka',
             'topic'                        = 'news_raw',

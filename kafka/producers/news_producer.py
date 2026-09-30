@@ -6,10 +6,9 @@ import time
 import requests
 from kafka import KafkaProducer
 import json
-from datetime import date, datetime, timedelta, time as dtime
-from zoneinfo import ZoneInfo
-import holidays
+from datetime import datetime
 from config.settings import FINNHUB_API_KEY, SYMBOLS
+from config.market_calendar import MARKET_TZ, reference_date
 
 news_producer = KafkaProducer(
     bootstrap_servers="localhost:9092",
@@ -21,27 +20,6 @@ news_producer = KafkaProducer(
 
 POLL_INTERVAL = 60
 seen_ids = set()
-
-MARKET_TZ = ZoneInfo("America/New_York")
-MARKET_OPEN = dtime(9, 30)
-NYSE_HOLIDAYS = holidays.financial_holidays("NYSE")
-
-def _is_trading_day(d):
-    return d.weekday() < 5 and d not in NYSE_HOLIDAYS
-
-def _previous_trading_day(d):
-    prev = d - timedelta(days=1)
-    while not _is_trading_day(prev):
-        prev -= timedelta(days=1)
-    return prev
-
-def reference_date():
-    now = datetime.now(MARKET_TZ)
-    today = now.date()
-    # Weekend, or trading hasn't started yet today — use the last full trading day
-    if not _is_trading_day(today) or now.time() < MARKET_OPEN:
-        return _previous_trading_day(today)
-    return today
 
 def fetch_news(symbol):
     ref = reference_date()
@@ -59,7 +37,7 @@ def poll():
     print(f"Polling Finnhub news for {SYMBOLS} every {POLL_INTERVAL}s...")
     while True:
         ref = reference_date()
-        new_count = 0
+        batch = []
         for symbol in SYMBOLS:
             try:
                 articles = fetch_news(symbol)
@@ -68,22 +46,22 @@ def poll():
                     if article_id in seen_ids:
                         continue
                     seen_ids.add(article_id)
-                    news_producer.send(
-                        topic="news_raw",
-                        key=symbol,
-                        value={
-                            "id":       article_id,
-                            "symbol":   symbol,
-                            "headline": article.get("headline", ""),
-                            "summary":  article.get("summary", ""),
-                            "datetime": article.get("datetime"),
-                        },
-                    )
-                    new_count += 1
+                    batch.append({
+                        "id":       article_id,
+                        "symbol":   symbol,
+                        "headline": article.get("headline", ""),
+                        "summary":  article.get("summary", ""),
+                        "datetime": article.get("datetime"),
+                    })
             except Exception as e:
                 print(f"Error fetching news for {symbol}: {e}")
+        # Finnhub returns newest first; send oldest first so the Flink join's
+        # event-time watermark doesn't mark most of the batch as late
+        batch.sort(key=lambda a: a["datetime"] or 0)
+        for article in batch:
+            news_producer.send(topic="news_raw", key=article["symbol"], value=article)
         news_producer.flush()
-        print(f"[{datetime.now(MARKET_TZ):%H:%M:%S}] ref date {ref}: {new_count} new articles sent.")
+        print(f"[{datetime.now(MARKET_TZ):%H:%M:%S}] ref date {ref}: {len(batch)} new articles sent.")
         time.sleep(POLL_INTERVAL)
 
 if __name__ == "__main__":

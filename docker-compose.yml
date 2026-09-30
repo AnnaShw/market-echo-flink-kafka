@@ -85,11 +85,14 @@ services:
     command: jobmanager
     ports:
       - "8081:8081"
+    # RocksDB state: the sentiment join keeps ~1 day of price ticks in state
+    # (see watermarks in sentiment_join.py) — on disk rather than the 1.7g heap
     environment:
       FLINK_PROPERTIES: |
         jobmanager.rpc.address: flink-jobmanager
         jobmanager.memory.process.size: 1600m
-        state.backend: hashmap
+        state.backend.type: rocksdb
+        state.backend.incremental: true
         state.checkpoints.dir: file:///opt/flink/checkpoints
         execution.checkpointing.interval: 60000
         execution.checkpointing.mode: AT_LEAST_ONCE
@@ -118,6 +121,8 @@ services:
         jobmanager.rpc.address: flink-jobmanager
         taskmanager.memory.process.size: 1728m
         taskmanager.numberOfTaskSlots: 4
+        state.backend.type: rocksdb
+        state.backend.incremental: true
     volumes:
       - flink-checkpoints:/opt/flink/checkpoints
       - ./flink_jobs:/opt/flink/jobs
